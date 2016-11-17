@@ -1499,9 +1499,6 @@ static int tda998x_create(struct i2c_client *client, struct tda998x_priv *priv)
 	priv->cec_addr = 0x34 + (client->addr & 0x03);
 	priv->current_page = 0xff;
 	priv->hdmi = client;
-	priv->cec = i2c_new_dummy(client->adapter, priv->cec_addr);
-	if (!priv->cec)
-		return -ENODEV;
 
 	/* wake up the device: */
 	cec_write(priv, REG_CEC_ENAMODS,
@@ -1555,6 +1552,10 @@ static int tda998x_create(struct i2c_client *client, struct tda998x_priv *priv)
 			CEC_FRO_IM_CLK_CTRL_GHOST_DIS | CEC_FRO_IM_CLK_CTRL_IMCLK_SEL);
 
 	/* initialize the optional IRQ */
+	priv->cec = i2c_new_dummy(client->adapter, priv->cec_addr);
+	if (!priv->cec)
+		return -ENODEV;
+
 	if (client->irq) {
 		unsigned long irq_flags;
 
