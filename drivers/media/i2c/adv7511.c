@@ -1712,9 +1712,8 @@ static bool adv7511_check_edid_status(struct v4l2_subdev *sd)
 
 		v4l2_dbg(1, debug, sd, "%s: edid complete with %d segment(s)\n", __func__, state->edid.segments);
 		state->edid.complete = true;
-		ed.phys_addr = cec_get_edid_phys_addr(state->edid.data,
-						      state->edid.segments * 256,
-						      NULL);
+		ed.phys_addr = cec_get_raw_edid_phys_addr(state->edid.data,
+				  state->edid.segments * 256, NULL);
 		/* report when we have all segments
 		   but report only for segment 0
 		 */

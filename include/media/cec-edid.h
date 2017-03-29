@@ -27,7 +27,7 @@
 	((pa) >> 12), ((pa) >> 8) & 0xf, ((pa) >> 4) & 0xf, (pa) & 0xf
 
 /**
- * cec_get_edid_phys_addr() - find and return the physical address
+ * cec_get_raw_edid_phys_addr() - find and return the physical address
  *
  * @edid:	pointer to the EDID data
  * @size:	size in bytes of the EDID data
@@ -37,8 +37,19 @@
  *
  * Return: the physical address or CEC_PHYS_ADDR_INVALID if there is none.
  */
-u16 cec_get_edid_phys_addr(const u8 *edid, unsigned int size,
-			   unsigned int *offset);
+u16 cec_get_raw_edid_phys_addr(const u8 *edid, unsigned int size,
+			       unsigned int *offset);
+
+struct edid;
+
+/**
+ * cec_get_edid_phys_addr() - find and return the physical address
+ *
+ * @edid:	pointer to struct edid
+ *
+ * Return: the physical address or CEC_PHYS_ADDR_INVALID if there is none.
+ */
+u16 cec_get_edid_phys_addr(const struct edid *edid);
 
 /**
  * cec_set_edid_phys_addr() - find and set the physical address

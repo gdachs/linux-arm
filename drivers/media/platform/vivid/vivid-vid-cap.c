@@ -1726,7 +1726,8 @@ int vidioc_s_edid(struct file *file, void *_fh,
 		edid->blocks = dev->edid_max_blocks;
 		return -E2BIG;
 	}
-	phys_addr = cec_get_edid_phys_addr(edid->edid, edid->blocks * 128, NULL);
+	phys_addr = cec_get_raw_edid_phys_addr(edid->edid,
+					       edid->blocks * 128, NULL);
 	ret = cec_phys_addr_validate(phys_addr, &phys_addr, NULL);
 	if (ret)
 		return ret;

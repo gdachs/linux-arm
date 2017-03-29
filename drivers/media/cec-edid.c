@@ -21,6 +21,7 @@
 #include <linux/kernel.h>
 #include <linux/types.h>
 #include <media/cec-edid.h>
+#include <drm/drm_edid.h>
 
 /*
  * This EDID is expected to be a CEA-861 compliant, which means that there are
@@ -82,8 +83,8 @@ static unsigned int cec_get_edid_spa_location(const u8 *edid, unsigned int size)
 	return 0;
 }
 
-u16 cec_get_edid_phys_addr(const u8 *edid, unsigned int size,
-			   unsigned int *offset)
+u16 cec_get_raw_edid_phys_addr(const u8 *edid, unsigned int size,
+			       unsigned int *offset)
 {
 	unsigned int loc = cec_get_edid_spa_location(edid, size);
 
@@ -92,6 +93,16 @@ u16 cec_get_edid_phys_addr(const u8 *edid, unsigned int size,
 	if (loc == 0)
 		return CEC_PHYS_ADDR_INVALID;
 	return (edid[loc] << 8) | edid[loc + 1];
+}
+EXPORT_SYMBOL_GPL(cec_get_raw_edid_phys_addr);
+
+u16 cec_get_edid_phys_addr(const struct edid *edid)
+{
+	if (!edid || edid->extensions == 0)
+		return CEC_PHYS_ADDR_INVALID;
+
+	return cec_get_raw_edid_phys_addr((u8 *)edid,
+				EDID_LENGTH * (edid->extensions + 1), NULL);
 }
 EXPORT_SYMBOL_GPL(cec_get_edid_phys_addr);
 
