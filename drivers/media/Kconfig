@@ -99,6 +99,9 @@ config MEDIA_CEC_DEBUG
 config MEDIA_CEC_EDID
 	bool
 
+config MEDIA_CEC_NOTIFIER
+	bool
+
 #
 # Media controller
 #	Selectable only for webcam/grabbers, as other drivers don't use it
