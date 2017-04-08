@@ -1665,8 +1665,10 @@ static int dw_hdmi_connector_get_modes(struct drm_connector *connector)
 		hdmi->sink_is_hdmi = drm_detect_hdmi_monitor(edid);
 		hdmi->sink_has_audio = drm_detect_monitor_audio(edid);
 		drm_mode_connector_update_edid_property(connector, edid);
+#ifdef CONFIG_MEDIA_CEC_EDID
 		cec_notifier_set_phys_addr(hdmi->cec_notifier,
 					   cec_get_edid_phys_addr(edid));
+#endif
 		ret = drm_add_edid_modes(connector, edid);
 		/* Store the ELD */
 		drm_edid_to_eld(connector, edid);
@@ -2087,18 +2089,20 @@ int dw_hdmi_bind(struct device *dev, struct device *master,
 		hdmi->audio = platform_device_register_full(&pdevinfo);
 	}
 
-	cec.base = hdmi->regs;
-	cec.irq = irq;
-	cec.ops = &dw_hdmi_cec_ops;
-	cec.ops_data = hdmi;
+	if (config0 & /* HDMI_CONFIG0_CEC */ 0x1) {
+		cec.base 	= hdmi->regs;
+		cec.irq		= irq;
+		cec.ops 	= &dw_hdmi_cec_ops;
+		cec.ops_data	= hdmi;
+		cec.write	= hdmi_writeb;
+		cec.read	= hdmi_readb;
 
-	pdevinfo.name = "dw-hdmi-cec";
-	pdevinfo.data = &cec;
-	pdevinfo.size_data = sizeof(cec);
-	pdevinfo.dma_mask = 0;
-
-	hdmi->cec = platform_device_register_full(&pdevinfo);
-
+		pdevinfo.name = "dw-hdmi-cec";
+		pdevinfo.data = &cec;
+		pdevinfo.size_data = sizeof(cec);
+		pdevinfo.dma_mask = 0;
+		hdmi->cec = platform_device_register_full(&pdevinfo);
+        }
 	/* Reset HDMI DDC I2C master controller and mute I2CM interrupts */
 	if (hdmi->i2c)
 		dw_hdmi_i2c_init(hdmi);

@@ -66,7 +66,24 @@ struct dw_hdmi_cec {
 	void *ops_data;
 	int retries;
 	int irq;
+        void (*write)(struct dw_hdmi *hdmi, u8 val, int offset);
+        u8 (*read)(struct dw_hdmi *hdmi, int offset);
 };
+
+static inline void hdmi_write(struct dw_hdmi_cec *cec,
+                              u8 val, int offset)
+{
+        struct dw_hdmi *hdmi = cec->ops_data;
+
+        cec->write(hdmi, val, offset);
+}
+
+static inline u8 hdmi_read(struct dw_hdmi_cec *cec, int offset)
+{
+        struct dw_hdmi *hdmi = cec->ops_data;
+
+        return cec->read(hdmi, offset);
+}
 
 static int dw_hdmi_cec_log_addr(struct cec_adapter *adap, u8 logical_addr)
 {
@@ -78,8 +95,8 @@ static int dw_hdmi_cec_log_addr(struct cec_adapter *adap, u8 logical_addr)
 	else
 		addresses = cec->addresses |= BIT(logical_addr) | BIT(15);
 
-	writeb_relaxed(addresses & 255, cec->base + HDMI_CEC_ADDR_L);
-	writeb_relaxed(addresses >> 8, cec->base + HDMI_CEC_ADDR_H);
+	hdmi_write(cec, addresses & 255, HDMI_CEC_ADDR_L);
+	hdmi_write(cec, addresses >> 8, HDMI_CEC_ADDR_H);
 
 	return 0;
 }
@@ -93,10 +110,10 @@ static int dw_hdmi_cec_transmit(struct cec_adapter *adap, u8 attempts,
 	cec->retries = attempts;
 
 	for (i = 0; i < msg->len; i++)
-		writeb_relaxed(msg->msg[i], cec->base + HDMI_CEC_TX_DATA0 + i);
+		hdmi_write(cec, msg->msg[i], HDMI_CEC_TX_DATA0 + i);
 
-	writeb_relaxed(msg->len, cec->base + HDMI_CEC_TX_CNT);
-	writeb_relaxed(CEC_CTRL_NORMAL | CEC_CTRL_START, cec->base + HDMI_CEC_CTRL);
+	hdmi_write(cec, msg->len, HDMI_CEC_TX_CNT);
+	hdmi_write(cec, CEC_CTRL_NORMAL | CEC_CTRL_START, HDMI_CEC_CTRL);
 
 	return 0;
 }
@@ -105,18 +122,18 @@ static irqreturn_t dw_hdmi_cec_hardirq(int irq, void *data)
 {
 	struct cec_adapter *adap = data;
 	struct dw_hdmi_cec *cec = adap->priv;
-	unsigned stat = readb_relaxed(cec->base + HDMI_IH_CEC_STAT0);
+	unsigned stat = hdmi_read(cec, HDMI_IH_CEC_STAT0);
 	irqreturn_t ret = IRQ_HANDLED;
 
 	if (stat == 0)
 		return IRQ_NONE;
 
-	writeb_relaxed(stat, cec->base + HDMI_IH_CEC_STAT0);
+	hdmi_write(cec, stat, HDMI_IH_CEC_STAT0);
 
 	if (stat & CEC_STAT_ERROR_INIT) {
 		if (cec->retries) {
-			unsigned v = readb_relaxed(cec->base + HDMI_CEC_CTRL);
-			writeb_relaxed(v | CEC_CTRL_START, cec->base + HDMI_CEC_CTRL);
+			unsigned v = hdmi_read(cec, HDMI_CEC_CTRL);
+			hdmi_write(cec, v | CEC_CTRL_START, HDMI_CEC_CTRL);
 			cec->retries -= 1;
 		} else {
 			cec->tx_status = CEC_TX_STATUS_MAX_RETRIES;
@@ -137,15 +154,15 @@ static irqreturn_t dw_hdmi_cec_hardirq(int irq, void *data)
 		unsigned len, i;
 		void *base = cec->base;
 
-		len = readb_relaxed(base + HDMI_CEC_RX_CNT);
+		len = hdmi_read(cec, base + HDMI_CEC_RX_CNT);
 		if (len > sizeof(cec->rx_msg.msg))
 			len = sizeof(cec->rx_msg.msg);
 
 		for (i = 0; i < len; i++)
 			cec->rx_msg.msg[i] =
-				readb_relaxed(base + HDMI_CEC_RX_DATA0 + i);
+				hdmi_read(cec, base + HDMI_CEC_RX_DATA0 + i);
 
-		writeb_relaxed(0, base + HDMI_CEC_LOCK);
+		hdmi_write(cec, 0, base + HDMI_CEC_LOCK);
 
 		cec->rx_msg.len = len;
 		smp_wmb();
@@ -179,17 +196,17 @@ static int dw_hdmi_cec_enable(struct cec_adapter *adap, bool enable)
 	struct dw_hdmi_cec *cec = adap->priv;
 
 	if (!enable) {
-		writeb_relaxed(~0, cec->base + HDMI_CEC_MASK);
-		writeb_relaxed(~0, cec->base + HDMI_IH_MUTE_CEC_STAT0);
-		writeb_relaxed(0, cec->base + HDMI_CEC_POLARITY);
+		hdmi_write(cec, ~0, HDMI_CEC_MASK);
+		hdmi_write(cec, ~0, HDMI_IH_MUTE_CEC_STAT0);
+		hdmi_write(cec, 0, HDMI_CEC_POLARITY);
 
 		cec->ops->disable(cec->ops_data);
 	} else {
 		unsigned irqs;
 
-		writeb_relaxed(0, cec->base + HDMI_CEC_CTRL);
-		writeb_relaxed(~0, cec->base + HDMI_IH_CEC_STAT0);
-		writeb_relaxed(0, cec->base + HDMI_CEC_LOCK);
+		hdmi_write(cec, 0, HDMI_CEC_CTRL);
+		hdmi_write(cec, ~0, HDMI_IH_CEC_STAT0);
+		hdmi_write(cec, 0, HDMI_CEC_LOCK);
 
 		dw_hdmi_cec_log_addr(cec->adap, CEC_LOG_ADDR_INVALID);
 
@@ -197,9 +214,9 @@ static int dw_hdmi_cec_enable(struct cec_adapter *adap, bool enable)
 
 		irqs = CEC_STAT_ERROR_INIT | CEC_STAT_NACK | CEC_STAT_EOM |
 		       CEC_STAT_DONE;
-		writeb_relaxed(irqs, cec->base + HDMI_CEC_POLARITY);
-		writeb_relaxed(~irqs, cec->base + HDMI_CEC_MASK);
-		writeb_relaxed(~irqs, cec->base + HDMI_IH_MUTE_CEC_STAT0);
+		hdmi_write(cec, irqs, HDMI_CEC_POLARITY);
+		hdmi_write(cec, ~irqs, HDMI_CEC_MASK);
+		hdmi_write(cec, ~irqs, HDMI_IH_MUTE_CEC_STAT0);
 	}
 	return 0;
 }
@@ -239,13 +256,15 @@ static int dw_hdmi_cec_probe(struct platform_device *pdev)
 	cec->irq = data->irq;
 	cec->ops = data->ops;
 	cec->ops_data = data->ops_data;
+	cec->read = data->read;
+	cec->write = data->write;
 
 	platform_set_drvdata(pdev, cec);
 
-	writeb_relaxed(0, cec->base + HDMI_CEC_TX_CNT);
-	writeb_relaxed(~0, cec->base + HDMI_CEC_MASK);
-	writeb_relaxed(~0, cec->base + HDMI_IH_MUTE_CEC_STAT0);
-	writeb_relaxed(0, cec->base + HDMI_CEC_POLARITY);
+	hdmi_write(cec, 0, HDMI_CEC_TX_CNT);
+	hdmi_write(cec, ~0, HDMI_CEC_MASK);
+	hdmi_write(cec, ~0, HDMI_IH_MUTE_CEC_STAT0);
+	hdmi_write(cec, 0, HDMI_CEC_POLARITY);
 
 	cec->adap = cec_allocate_adapter(&dw_hdmi_cec_ops, cec, "dw_hdmi",
 					 CEC_CAP_LOG_ADDRS | CEC_CAP_TRANSMIT |
