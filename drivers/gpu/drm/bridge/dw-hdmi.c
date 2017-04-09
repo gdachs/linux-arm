@@ -2090,7 +2090,6 @@ int dw_hdmi_bind(struct device *dev, struct device *master,
 	}
 
 	if (config0 & /* HDMI_CONFIG0_CEC */ 0x1) {
-		cec.base 	= hdmi->regs;
 		cec.irq		= irq;
 		cec.ops 	= &dw_hdmi_cec_ops;
 		cec.ops_data	= hdmi;

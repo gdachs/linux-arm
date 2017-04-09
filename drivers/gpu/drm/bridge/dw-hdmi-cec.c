@@ -54,7 +54,6 @@ enum {
 };
 
 struct dw_hdmi_cec {
-	void __iomem *base;
 	u32 addresses;
 	struct cec_adapter *adap;
 	struct cec_msg rx_msg;
@@ -152,17 +151,16 @@ static irqreturn_t dw_hdmi_cec_hardirq(int irq, void *data)
 
 	if (stat & CEC_STAT_EOM) {
 		unsigned len, i;
-		void *base = cec->base;
 
-		len = hdmi_read(cec, base + HDMI_CEC_RX_CNT);
+		len = hdmi_read(cec, HDMI_CEC_RX_CNT);
 		if (len > sizeof(cec->rx_msg.msg))
 			len = sizeof(cec->rx_msg.msg);
 
 		for (i = 0; i < len; i++)
 			cec->rx_msg.msg[i] =
-				hdmi_read(cec, base + HDMI_CEC_RX_DATA0 + i);
+				hdmi_read(cec, HDMI_CEC_RX_DATA0 + i);
 
-		hdmi_write(cec, 0, base + HDMI_CEC_LOCK);
+		hdmi_write(cec, 0, HDMI_CEC_LOCK);
 
 		cec->rx_msg.len = len;
 		smp_wmb();
@@ -252,7 +250,6 @@ static int dw_hdmi_cec_probe(struct platform_device *pdev)
 	if (!cec)
 		return -ENOMEM;
 
-	cec->base = data->base;
 	cec->irq = data->irq;
 	cec->ops = data->ops;
 	cec->ops_data = data->ops_data;
